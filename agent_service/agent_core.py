@@ -292,13 +292,43 @@ def generate_consultation_report(req: ConsultRequest):
                 final_report = extract_json(response_msg.content)
                 return {"status": "success", "data": final_report}
             except ValueError:
+                # JSON解析失败，重试最多2次
+                print(f"[重试] 第{i+1}轮JSON解析失败，尝试重新请求...")
+                retry_max = 2
+                for retry in range(retry_max):
+                    # 追加提示要求纯JSON输出
+                    messages.append({"role": "user", "content": "你的上一次输出不是有效的JSON格式。请严格按照系统提示中的输出格式，只输出纯JSON对象，不要加任何Markdown标记或额外文字。"})
+                    try:
+                        retry_resp = client.chat.completions.create(
+                            model=MODEL,
+                            messages=messages,
+                            temperature=0.1,
+                        )
+                        retry_msg = retry_resp.choices[0].message
+                        messages.append(message_to_dict(retry_msg))
+                        if retry_msg.tool_calls:
+                            # 重试时模型又调工具了，继续循环
+                            for tc in retry_msg.tool_calls:
+                                print(f"[重试工具调用] {tc.function.name}")
+                                tr = execute_tool_call(tc.function.name, tc.function.arguments)
+                                messages.append({"tool_call_id": tc.id, "role": "tool", "name": tc.function.name, "content": tr})
+                            continue  # 继续重试循环
+                        final_report = extract_json(retry_msg.content)
+                        return {"status": "success", "data": final_report}
+                    except ValueError:
+                        print(f"[重试] 第{retry+1}次重试仍无法解析JSON")
+                        continue
+                    except Exception as e:
+                        print(f"[重试] 第{retry+1}次重试异常: {str(e)}")
+                        continue
+                # 所有重试都失败
                 return {
                     "status": "error",
-                    "message": "模型返回格式异常，无法解析为JSON",
-                    "raw_content": response_msg.content
+                    "message": "模型返回格式异常，无法解析为JSON，请重试",
+                    "raw_content": response_msg.content[:500] if response_msg.content else ""
                 }
 
-    raise HTTPException(status_code=500, detail="Agent思考超时（3轮未得出结论）")
+    raise HTTPException(status_code=500, detail="Agent思考超时（6轮未得出结论）")
 
 # --- 聊天模式接口（简单对话，不调工具） ---
 class ChatRequest(BaseModel):
