@@ -12,9 +12,10 @@ services:
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 30s
 
   # 核心大脑（对外8080，小程序入口）
   agent_service:
@@ -27,10 +28,12 @@ services:
     environment:
       - TOOLS_API_URL=http://tools_service:8000
     depends_on:
-      - tools_service
+      tools_service:
+        condition: service_healthy
     restart: always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5
+      start_period: 30s

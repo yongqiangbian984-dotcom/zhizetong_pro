@@ -4,5 +4,3 @@ requests==2.31.0
 beautifulsoup4==4.12.2
 pydantic==2.5.2
 httpx==0.25.2
-chromadb==0.4.22
-sentence-transformers==2.2.2

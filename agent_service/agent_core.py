@@ -168,9 +168,10 @@ SYSTEM_PROMPT = """你现在是"智泽通"核心大脑——一位基于AI Agent
 1. 家庭资源能否支撑Plan A？不能则必须调整
 2. 推荐专业是否有高AI替代风险？有则给出转型建议
 3. 竞争极惨烈的省份是否给了Plan B（如中外合作、跨省考研）？
+如果reflection_check三个字段不全为true，不允许输出Plan A。
 
 ## 输出格式
-最终结果必须是纯JSON对象：
+最终结果必须是纯JSON对象，禁止输出任何多余的Markdown标记：
 {
   "step1_personality": {"decision_style": "...", "interest_depth": "Level X", "evidence": "..."},
   "step2_fri": {"fri_index": X.X, "resource_level": "...", "carrying_capacity": "..."},
@@ -192,21 +193,52 @@ def execute_tool_call(tool_name, arguments):
         res = requests.post(f"{TOOLS_URL}{path}", json=args, timeout=15)
         return res.text
     except Exception as e:
-        return json.dumps({"error": str(e)})
+        return json.dumps({"error": f"工具调用失败: {str(e)}"})
 
 # --- JSON提取 ---
 def extract_json(text):
+    # 直接解析
     try:
         return json.loads(text)
     except:
         pass
+    # 提取 ```json ... ``` 代码块
     match = re.search(r'```(?:json)?\s*([\s\S]*?)```', text)
     if match:
         try:
             return json.loads(match.group(1).strip())
         except:
             pass
+    # 尝试找最外层 { }
+    match = re.search(r'\{[\s\S]*\}', text)
+    if match:
+        try:
+            return json.loads(match.group(0))
+        except:
+            pass
     raise ValueError("无法从模型输出中提取有效JSON")
+
+# --- OpenAI message对象转dict ---
+def message_to_dict(msg):
+    """将OpenAI返回的message对象转成可序列化的dict"""
+    d = {"role": msg.role, "content": msg.content or ""}
+    if msg.tool_calls:
+        d["tool_calls"] = []
+        for tc in msg.tool_calls:
+            d["tool_calls"].append({
+                "id": tc.id,
+                "type": "function",
+                "function": {"name": tc.function.name, "arguments": tc.function.arguments}
+            })
+    return d
+
+# --- 启动验证 ---
+@app.on_event("startup")
+def startup():
+    if not API_KEY:
+        print("[⚠️ 警告] DEEPSEEK_API_KEY 未设置，所有AI请求将失败！")
+    else:
+        print(f"[✅ 启动] Agent Core 就绪，模型: {MODEL}，工具服务: {TOOLS_URL}")
 
 # --- 核心接口 ---
 @app.post("/api/v1/consult")
@@ -228,19 +260,25 @@ def generate_consultation_report(req: ConsultRequest):
     # ReAct循环，最多3轮
     max_iterations = 3
     for i in range(max_iterations):
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            temperature=0.3
-        )
+        print(f"[思考] 第{i+1}轮...")
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+                temperature=0.3
+            )
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"DeepSeek API调用失败: {str(e)}")
+
         response_msg = response.choices[0].message
-        messages.append(response_msg)
+        # 转成dict存入messages，确保序列化安全
+        messages.append(message_to_dict(response_msg))
 
         if response_msg.tool_calls:
             for tool_call in response_msg.tool_calls:
-                print(f"[Agent 工具调用] {tool_call.function.name}")
+                print(f"[工具调用] {tool_call.function.name}")
                 tool_result = execute_tool_call(tool_call.function.name, tool_call.function.arguments)
                 messages.append({
                     "tool_call_id": tool_call.id,
@@ -249,19 +287,21 @@ def generate_consultation_report(req: ConsultRequest):
                     "content": tool_result
                 })
         else:
+            # 模型给出最终答案
             try:
                 final_report = extract_json(response_msg.content)
                 return {"status": "success", "data": final_report}
             except ValueError:
                 return {
                     "status": "error",
-                    "message": "模型返回格式异常",
+                    "message": "模型返回格式异常，无法解析为JSON",
                     "raw_content": response_msg.content
                 }
 
-    raise HTTPException(status_code=500, detail="Agent思考超时或陷入死循环")
+    raise HTTPException(status_code=500, detail="Agent思考超时（3轮未得出结论）")
 
 # --- Health Check ---
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": "1.0", "tools": len(TOOLS), "model": MODEL}
+    api_status = "ok" if API_KEY else "missing_key"
+    return {"status": "ok", "version": "1.0", "tools": len(TOOLS), "model": MODEL, "api_key": api_status}

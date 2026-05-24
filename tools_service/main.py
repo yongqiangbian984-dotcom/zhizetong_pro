@@ -9,7 +9,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
-from bs4 import BeautifulSoup
 
 app = FastAPI(title="智择通 Agent 外部工具箱", version="1.0")
 
@@ -23,6 +22,7 @@ app.add_middleware(
 
 # --- SQLite 本地数据库 ---
 DB_PATH = os.getenv("DB_PATH", "/data/zhizetong_local_data.db")
+VECTOR_DB_PATH = os.getenv("VECTOR_DB_PATH", "/data/zzt_vector_db")
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
@@ -36,12 +36,25 @@ def init_db():
         province TEXT, university TEXT, major TEXT,
         year INTEGER, min_score INTEGER, min_rank INTEGER
     )''')
+    # 注入初始mock数据（仅首次）
+    count = conn.execute("SELECT COUNT(*) FROM admission_scores").fetchone()[0]
+    if count == 0:
+        mock_data = [
+            ("内蒙古", "北京邮电大学", "计算机科学与技术", 2023, 620, 1500),
+            ("内蒙古", "北京邮电大学", "计算机科学与技术", 2024, 635, 1200),
+            ("山东", "电子科技大学", "通信工程", 2024, 650, 3000),
+        ]
+        conn.executemany(
+            "INSERT INTO admission_scores (province, university, major, year, min_score, min_rank) VALUES (?,?,?,?,?,?)",
+            mock_data
+        )
     conn.commit()
     conn.close()
 
 @app.on_event("startup")
 def startup():
     init_db()
+    print(f"[启动] 工具箱就绪，数据库: {DB_PATH}")
 
 # --- 通用防反爬请求框架 ---
 def fetch_html_content(url: str) -> str:
@@ -55,12 +68,13 @@ def fetch_html_content(url: str) -> str:
     }
     for attempt in range(3):
         try:
-            with httpx.Client(timeout=10.0) as client:
-                response = client.get(url, headers=headers)
+            with httpx.Client(timeout=10.0) as http_client:
+                response = http_client.get(url, headers=headers)
                 response.raise_for_status()
                 return response.text
         except Exception as e:
             if attempt == 2:
+                print(f"[爬虫报错] 抓取 {url} 失败: {str(e)}")
                 return None
             time.sleep(1)
 
@@ -86,9 +100,9 @@ def get_admission_stats(query: AdmissionQuery):
     if rows:
         return {"status": "success", "data": [dict(r) for r in rows]}
 
-    # 降级：本地动态算法（同参数同结果）
+    # 降级：本地动态算法（同参数同结果，seed固定）
     seed = int(hashlib.md5(f"{query.university}{query.major}{query.province}".encode()).hexdigest()[:8], 16)
-    random.seed(seed)
+    rng = random.Random(seed)
 
     base_score = 500
     if any(kw in query.university for kw in ["北京大学", "清华"]):
@@ -105,7 +119,7 @@ def get_admission_stats(query: AdmissionQuery):
 
     history_data = []
     for y in range(query.year - 3, query.year):
-        fluctuation = random.randint(-5, 5)
+        fluctuation = rng.randint(-5, 5)
         history_data.append({
             "year": y,
             "min_score": base_score + fluctuation,
@@ -129,30 +143,33 @@ def get_admission_stats(query: AdmissionQuery):
 class IndustryQuery(BaseModel):
     industry_name: str
 
-@app.post("/api/tools/industry_trend")
-def get_industry_trend(query: IndustryQuery):
-    industry = query.industry_name
-
-    # 尝试RAG检索（如果ChromaDB可用）
-    rag_context = None
+def _query_rag(industry: str):
+    """尝试RAG检索，不可用则返回None"""
     try:
         import chromadb
         from chromadb.utils import embedding_functions
-        chroma_client = chromadb.PersistentClient(path="./zzt_vector_db")
+        chroma_client = chromadb.PersistentClient(path=VECTOR_DB_PATH)
         ef = embedding_functions.DefaultEmbeddingFunction()
         collection = chroma_client.get_collection(name="industry_reports", embedding_function=ef)
         results = collection.query(query_texts=[f"{industry} 行业康波周期趋势AI替代"], n_results=1)
         if results['documents'] and len(results['documents'][0]) > 0:
-            rag_context = results['documents'][0][0]
-    except Exception:
-        pass  # ChromaDB不可用，走本地规则
+            return results['documents'][0][0], results['metadatas'][0][0].get('source', '未知')
+    except Exception as e:
+        print(f"[RAG] ChromaDB不可用: {e}")
+    return None, None
 
+@app.post("/api/tools/industry_trend")
+def get_industry_trend(query: IndustryQuery):
+    industry = query.industry_name
+
+    # 尝试RAG检索
+    rag_context, rag_source = _query_rag(industry)
     if rag_context:
         return {
             "status": "success",
             "data": {
                 "industry": industry,
-                "source": "本地向量知识库",
+                "source": f"本地向量知识库 ({rag_source})",
                 "expert_insight": rag_context,
                 "system_instruction": "请将上述expert_insight作为核心依据撰写行业分析"
             }
@@ -160,7 +177,7 @@ def get_industry_trend(query: IndustryQuery):
 
     # 降级：本地规则库
     if any(kw in industry for kw in ["AI", "人工智能", "大数据", "新能源", "芯片"]):
-        cycle, ai_risk, advice = "繁荣期（上升通道）", "极低（AI创造者序列）", "国家战略红利期，闭眼入，但需注重底层能力避免沦为调参工。"
+        cycle, ai_risk, advice = "繁荣期（上升通道）", "极低（AI创造者序列）", "国家战略红利期，但需注重底层能力避免沦为调参工。"
     elif any(kw in industry for kw in ["土木", "建筑", "房地产"]):
         cycle, ai_risk, advice = "萧条期（下行通道）", "低（实体但行业萎缩）", "存量博弈，增量极少。除非FRI极高有工程人脉，否则坚决劝退。"
     elif any(kw in industry for kw in ["金融", "投资"]):
@@ -192,10 +209,12 @@ def evaluate_location_value(query: LocationQuery):
 
     if city in ["北京", "上海", "广州", "深圳"]:
         tier, cost, policy, tv = "一线城市", "极高", "落户门槛极高，非985硕士极难留存。", "高投入高回报，适合资源充足或极度抗压的学生。"
-    elif city in ["杭州", "成都", "武汉", "南京", "苏州"]:
+    elif city in ["杭州", "成都", "武汉", "南京", "苏州", "西安", "重庆", "长沙"]:
         tier, cost, policy, tv = "新一线城市", "中等偏高", "抢人阶段，本科可落户，购房有补贴。", "性价比最高，建议作为Plan A核心主攻地域。"
+    elif city in ["包头", "呼和浩特", "洛阳", "芜湖", "赣州"]:
+        tier, cost, policy, tv = "三线城市", "低", "零门槛落户，地方政府发补贴。", "产业单一，除非体制内或家族生意，不建议回流。"
     else:
-        tier, cost, policy, tv = "二线及以下", "低", "零门槛落户，地方政府发补贴。", "产业单一，除非体制内或家族生意，不建议回流。"
+        tier, cost, policy, tv = "二线城市", "中等", "本科可落户，有一定人才补贴。", "性价比尚可，适合本地家庭资源复用。"
 
     return {
         "status": "success",
