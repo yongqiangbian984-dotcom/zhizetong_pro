@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # 工具沙箱（内网-only，只有大脑能调）
+  tools_service:
+    build: ./tools_service
+    container_name: zzt_tools
+    expose:
+      - "8000"
+    volumes:
+      - ./data:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # 核心大脑（对外8080，小程序入口）
+  agent_service:
+    build: ./agent_service
+    container_name: zzt_agent_core
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      - TOOLS_API_URL=http://tools_service:8000
+    depends_on:
+      - tools_service
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
