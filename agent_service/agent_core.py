@@ -401,31 +401,38 @@ def chat_endpoint(req: ChatRequest):
         raise HTTPException(status_code=502, detail=f"DeepSeek API调用失败: {str(e)}")
 
 def _check_can_report(messages, latest_msg):
-    """检查6个维度的信息是否都已覆盖"""
-    full_text = " ".join([m.get("content", "") for m in messages])
+    """检查6个维度的信息是否都已覆盖——只看用户消息，不看AI回复"""
+    # 只提取用户发送的消息内容
+    user_texts = [m.get("content", "") for m in messages if m.get("role") == "user"]
+    user_text = " ".join(user_texts)
+    
+    # 如果用户消息太少，直接返回False
+    if len(user_texts) < 4:
+        print(f"[报告就绪检查] 用户只发了{len(user_texts)}条消息，至少需要4条才可能就绪")
+        return False
 
     # 维度1：性格特质
-    d1 = any(kw in full_text for kw in ["性格", "感性", "理性", "稳健", "冲动", "热爱", "兴趣", "喜欢做"])
+    d1 = any(kw in user_text for kw in ["性格", "感性", "理性", "稳健", "冲动", "热爱", "喜欢", "爱好", "擅长", "执着", "坚持", "自律", "随性"])
 
     # 维度2：家庭资源
-    d2 = any(kw in full_text for kw in ["家庭", "预算", "经济", "收入", "家境", "家里", "父母", "万"])
+    d2 = any(kw in user_text for kw in ["家庭", "预算", "经济", "收入", "家境", "家里", "父母", "万块", "万元", "花钱", "负担", "条件"])
 
     # 维度3：职业方向
-    d3 = any(kw in full_text for kw in ["职业", "工作", "就业", "体制", "创业", "大厂", "科研", "方向"])
+    d3 = any(kw in user_text for kw in ["职业", "就业", "体制", "创业", "大厂", "科研", "方向", "想做", "打算做", "程序员", "工程师", "老师", "医生", "律师"])
 
     # 维度4：地域偏好
-    d4 = any(kw in full_text for kw in ["城市", "北京", "上海", "广州", "深圳", "地域", "地方", "出国", "留"])
+    d4 = any(kw in user_text for kw in ["城市", "广州", "深圳", "地域", "地方", "出国", "留学", "留在", "去北京", "去上海", "回老家"])
 
     # 维度5：升学基础
-    d5_province = any(p in full_text for p in ["省", "内蒙古", "北京", "上海", "广东", "浙江", "江苏", "山东", "河南", "河北", "四川", "湖北", "湖南", "安徽", "福建", "陕西", "重庆", "辽宁", "吉林", "黑龙江", "广西", "云南", "贵州", "甘肃", "新疆", "西藏", "宁夏", "青海", "海南", "天津"])
-    d5_score = any(kw in full_text for kw in ["分", "成绩", "高考"])
+    d5_province = any(p in user_text for p in ["内蒙古", "北京", "上海", "广东", "浙江", "江苏", "山东", "河南", "河北", "四川", "湖北", "湖南", "安徽", "福建", "陕西", "重庆", "辽宁", "吉林", "黑龙江", "广西", "云南", "贵州", "甘肃", "新疆", "西藏", "宁夏", "青海", "海南", "天津"])
+    d5_score = any(kw in user_text for kw in ["分", "成绩", "高考"])
     d5 = d5_province and d5_score
 
     # 维度6：容错底线
-    d6 = any(kw in full_text for kw in ["保底", "最差", "底线", "风险", "承受", "退路", "Plan B", "plan b", "备选"])
+    d6 = any(kw in user_text for kw in ["保底", "最差", "底线", "退路", "备选", "不行就", "实在不行"])
 
     result = d1 and d2 and d3 and d4 and d5 and d6
-    print(f"[报告就绪检查] 维度1性格:{d1} 维度2家庭:{d2} 维度3职业:{d3} 维度4地域:{d4} 维度5升学:{d5} 维度6容错:{d6} → 可出报告:{result}")
+    print(f"[报告就绪检查] 用户消息数:{len(user_texts)} 维度1性格:{d1} 维度2家庭:{d2} 维度3职业:{d3} 维度4地域:{d4} 维度5升学:{d5} 维度6容错:{d6} → 可出报告:{result}")
     return result
 
 # --- Health Check ---
