@@ -300,6 +300,46 @@ def generate_consultation_report(req: ConsultRequest):
 
     raise HTTPException(status_code=500, detail="Agent思考超时（3轮未得出结论）")
 
+# --- 聊天模式接口（简单对话，不调工具） ---
+class ChatRequest(BaseModel):
+    message: str
+    history: Optional[List[dict]] = []
+    role: Optional[str] = "student"
+
+CHAT_SYSTEM_PROMPT = """你是"智择通"升学规划顾问，正在和学生或家长进行对话。
+你的任务是通过聊天了解学生的情况，包括：省份、分数、文理科、兴趣方向、家庭预算、性格特点、职业目标等。
+每次回复简洁友好，逐步引导对方提供关键信息。当信息收集足够时，提示用户可以生成6维评估报告。
+不要输出JSON，用自然语言回复。"""
+
+@app.post("/api/v1/chat")
+def chat_endpoint(req: ChatRequest):
+    messages = [{"role": "system", "content": CHAT_SYSTEM_PROMPT}]
+    # 加入历史对话
+    for h in (req.history or []):
+        if h.get("role") in ("user", "assistant"):
+            messages.append({"role": h["role"], "content": h.get("content", "")})
+    messages.append({"role": "user", "content": req.message})
+
+    try:
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            temperature=0.7
+        )
+        reply = response.choices[0].message.content or "抱歉，我暂时无法回复"
+        # 检查是否收集到足够信息
+        can_report = _check_can_report(messages, req.message)
+        return {"code": 0, "data": {"reply": reply, "canReport": can_report}}
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"DeepSeek API调用失败: {str(e)}")
+
+def _check_can_report(messages, latest_msg):
+    """简单判断：如果对话中出现省份+分数关键词，认为可以生成报告"""
+    full_text = " ".join([m.get("content", "") for m in messages])
+    has_province = any(p in full_text for p in ["省", "市", "区", "内蒙古", "北京", "上海", "广东", "浙江", "江苏", "山东", "河南", "河北", "四川", "湖北", "湖南", "安徽", "福建", "陕西", "重庆", "辽宁", "吉林", "黑龙江", "广西", "云南", "贵州", "甘肃", "新疆", "西藏", "宁夏", "青海", "海南", "天津"])
+    has_score = any(kw in full_text for kw in ["分", "成绩", "高考"])
+    return has_province and has_score
+
 # --- Health Check ---
 @app.get("/health")
 def health():

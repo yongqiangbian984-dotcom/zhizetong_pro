@@ -259,34 +259,31 @@ Page({
     this._scrollToLast(100);
 
     var that = this;
-
-    // 聊天模式仍用云函数（保留兼容）
+    var apiBase = config.zexiaoApiBase || 'http://localhost:8080';
     var history = this.data.messages.slice(-10).map(function(m) {
       return { role: m.role === 'user' ? 'user' : 'assistant', content: m.content };
     });
 
-    wx.cloud.callFunction({
-      name: 'api',
-      data: {
-        action: 'zexiao_chat',
-        data: { message: msg, history: history, role: that.data.role }
-      },
+    wx.request({
+      url: apiBase + '/api/v1/chat',
+      method: 'POST',
+      header: { 'content-type': 'application/json' },
+      data: { message: msg, history: history, role: that.data.role },
+      timeout: 60000,
       success: function(res) {
-        if (res.result && res.result.code === 0) {
-          var data = res.result.data;
+        if (res.statusCode === 200 && res.data && res.data.code === 0) {
+          var data = res.data.data;
           var aiContent = data.reply || '抱歉，我暂时无法回复';
-          var newCompletion = data.completion || that.data.completion;
           var canReport = data.canReport || false;
 
           var allMessages = that.data.messages.concat([{ role: 'ai', content: '' }]);
           that.setData({
             messages: allMessages,
-            completion: newCompletion,
             canReport: canReport,
             sending: false
           });
           that._scrollToLast(100);
-          that.startTypewriter(aiContent, newCompletion);
+          that.startTypewriter(aiContent, that.data.completion);
 
           if (canReport) {
             setTimeout(function() {
@@ -297,7 +294,6 @@ Page({
                 cancelText: '再聊聊',
                 success: function(modalRes) {
                   if (modalRes.confirm) {
-                    // 聊天模式也尝试调6维API
                     var profile = that.data.profile || {};
                     profile.personality = msg;
                     that.callConsultApi(profile);
@@ -307,15 +303,17 @@ Page({
             }, 1000);
           }
         } else {
+          var errMsg = '抱歉，出了点问题';
+          if (res.data && res.data.detail) errMsg = res.data.detail;
           that.setData({
-            messages: that.data.messages.concat([{ role: 'ai', content: '抱歉，出了点问题，请重试' }]),
+            messages: that.data.messages.concat([{ role: 'ai', content: '❌ ' + errMsg }]),
             sending: false
           });
         }
       },
       fail: function() {
         that.setData({
-          messages: that.data.messages.concat([{ role: 'ai', content: '网络异常，请重试' }]),
+          messages: that.data.messages.concat([{ role: 'ai', content: '❌ 网络请求失败，请检查Docker后端是否在运行\n当前地址：' + apiBase }]),
           sending: false
         });
       }
