@@ -257,8 +257,8 @@ def generate_consultation_report(req: ConsultRequest):
         messages.extend(req.history)
     messages.append({"role": "user", "content": user_query})
 
-    # ReAct循环，最多3轮
-    max_iterations = 3
+    # ReAct循环，最多6轮（5个工具调用 + 1轮最终生成）
+    max_iterations = 6
     for i in range(max_iterations):
         print(f"[思考] 第{i+1}轮...")
         try:
