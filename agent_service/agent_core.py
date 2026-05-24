@@ -406,9 +406,8 @@ def _check_can_report(messages, latest_msg):
     user_texts = [m.get("content", "") for m in messages if m.get("role") == "user"]
     user_text = " ".join(user_texts)
     
-    # 如果用户消息太少，直接返回False
-    if len(user_texts) < 4:
-        print(f"[报告就绪检查] 用户只发了{len(user_texts)}条消息，至少需要4条才可能就绪")
+    # 没有用户消息就不行
+    if not user_texts:
         return False
 
     # 维度1：性格特质
