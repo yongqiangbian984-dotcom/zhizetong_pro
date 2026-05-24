@@ -1,0 +1,90 @@
+<view class="entry-container">
+  <view class="step1" wx:if="{{step === 1}}">
+    <view class="brand-area">
+      <view class="brand-logo">🎓</view>
+      <view class="brand-name">智择通</view>
+      <view class="brand-sub">AI 阶层承接与人生推演引擎</view>
+      <view class="brand-desc">6维评估 · 智能择校 · 资源匹配</view>
+    </view>
+    <view class="role-section">
+      <view class="role-title">选择你的身份</view>
+      <view class="role-btn" bindtap="selectRole" data-role="student">
+        <view class="role-emoji">📚</view>
+        <view class="role-text">
+          <view class="role-label">我是学生</view>
+          <view class="role-hint">评估自己的方向</view>
+        </view>
+      </view>
+      <view class="role-btn" bindtap="selectRole" data-role="parent">
+        <view class="role-emoji">👨‍👩‍👧</view>
+        <view class="role-text">
+          <view class="role-label">我是家长</view>
+          <view class="role-hint">观察孩子的评估</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="step2" wx:if="{{step === 2 && role === 'student'}}">
+    <view class="qa-header">
+      <view class="qa-progress">{{qaStep}}/4</view>
+      <view class="qa-title">{{qaTitle}}</view>
+    </view>
+    <view class="qa-options" wx:if="{{qaStep === 1}}">
+      <view class="qa-opt" bindtap="selectQA" data-key="q1" data-val="初中">初中</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q1" data-val="高一/高二">高一/高二</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q1" data-val="高三">高三</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q1" data-val="大一/大二">大一/大二</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q1" data-val="大三/大四">大三/大四</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q1" data-val="已工作">已工作</view>
+    </view>
+    <view class="qa-options" wx:if="{{qaStep === 2}}">
+      <view class="qa-opt" bindtap="selectQA" data-key="q2" data-val="前10%">前10%</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q2" data-val="前30%">前30%</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q2" data-val="中等">中等</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q2" data-val="偏下">偏下</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q2" data-val="不确定">不确定</view>
+    </view>
+    <view class="qa-options" wx:if="{{qaStep === 3}}">
+      <view class="qa-opt" bindtap="selectQA" data-key="q3" data-val="北上广深">北上广深</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q3" data-val="新一线城市">新一线城市</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q3" data-val="省会城市">省会城市</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q3" data-val="离家近">离家近</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q3" data-val="无所谓">无所谓</view>
+    </view>
+    <view class="qa-options" wx:if="{{qaStep === 4}}">
+      <view class="qa-opt" bindtap="selectQA" data-key="q4" data-val="按自己兴趣来">按自己兴趣来</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q4" data-val="听家长的安排">听家长的安排</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q4" data-val="两者结合">两者结合</view>
+      <view class="qa-opt" bindtap="selectQA" data-key="q4" data-val="没想好">没想好</view>
+    </view>
+    <view class="qa-back" bindtap="qaBack" wx:if="{{qaStep > 1}}">‹ 上一步</view>
+  </view>
+
+  <view class="step2-parent" wx:if="{{step === 2 && role === 'parent'}}">
+    <view class="parent-intro">
+      <view class="parent-icon">👨‍👩‍👧</view>
+      <view class="parent-title">家长观察面板</view>
+      <view class="parent-desc">你可以实时查看孩子的评估进度，也可以补充你对孩子的观察</view>
+    </view>
+    <view class="parent-actions">
+      <view class="action-btn" bindtap="goToProgress">进入观察面板</view>
+      <button class="action-btn action-btn-share" open-type="share">📋 分享给孩子评估</button>
+    </view>
+  </view>
+
+  <view class="step3" wx:if="{{step === 3 && role === 'student'}}">
+    <view class="confirm-card">
+      <view class="confirm-title">你的基本情况</view>
+      <view class="confirm-row"><text class="confirm-label">阶段</text><text class="confirm-val">{{answers.q1}}</text></view>
+      <view class="confirm-row"><text class="confirm-label">成绩</text><text class="confirm-val">{{answers.q2}}</text></view>
+      <view class="confirm-row"><text class="confirm-label">地域</text><text class="confirm-val">{{answers.q3}}</text></view>
+      <view class="confirm-row"><text class="confirm-label">方向</text><text class="confirm-val">{{answers.q4}}</text></view>
+    </view>
+    <view class="action-btn" bindtap="startChat">开始 AI 评估</view>
+    <view class="share-section">
+      <view class="share-hint">让家长也能看到你的评估进度</view>
+      <button class="action-btn action-btn-share" open-type="share">📋 分享给家长</button>
+    </view>
+  </view>
+</view>

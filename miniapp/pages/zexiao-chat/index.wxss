@@ -1,0 +1,139 @@
+.chat-container {
+  height: 100vh;
+  background-color: #0D0E15;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.nav-bar {
+  display: flex;
+  align-items: flex-end;
+  background-color: #0D0E15;
+  border-bottom: 1px solid #1F2133;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+.nav-content {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding-left: 20rpx;
+  padding-right: 20rpx;
+  width: 100%;
+}
+.nav-back {
+  width: 100rpx;
+  color: #00FFCC;
+  font-size: 32rpx;
+  font-weight: bold;
+}
+.nav-title {
+  flex: 1;
+  text-align: center;
+  color: #D4AF37;
+  font-size: 32rpx;
+  font-weight: bold;
+}
+.nav-progress {
+  width: 100rpx;
+  text-align: right;
+  color: #00FFCC;
+  font-size: 26rpx;
+  font-weight: bold;
+}
+.progress-bar-mini {
+  height: 4rpx;
+  background-color: #1A1C29;
+  flex-shrink: 0;
+}
+.progress-bar-mini .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #D4AF37, #00FFCC);
+  transition: width 0.5s ease;
+}
+.msg-list {
+  flex: 1;
+  padding: 30rpx;
+  padding-bottom: 30rpx;
+  overflow: hidden;
+}
+.msg-item {
+  display: flex;
+  margin-bottom: 40rpx;
+  width: 100%;
+}
+.my-msg {
+  justify-content: flex-end;
+}
+.ai-msg {
+  justify-content: flex-start;
+}
+.bubble {
+  max-width: 75%;
+  padding: 24rpx 32rpx;
+  border-radius: 20rpx;
+  font-size: 30rpx;
+  line-height: 1.5;
+  word-break: break-all;
+}
+.my-msg .bubble {
+  background-color: #00FFCC;
+  color: #000;
+  border-bottom-right-radius: 4rpx;
+  box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+}
+.ai-msg .bubble {
+  background-color: #1A1C29;
+  color: #E0E0E0;
+  border-bottom-left-radius: 4rpx;
+  border: 1px solid #2A2D40;
+}
+.report-btn {
+  flex-shrink: 0;
+  margin: 0 30rpx 10rpx 30rpx;
+  padding: 20rpx;
+  background: linear-gradient(135deg, #D4AF37, #F5D76E);
+  color: #1a1814;
+  text-align: center;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  font-weight: bold;
+}
+.input-area {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 20rpx 30rpx;
+  background-color: #11121A;
+  border-top: 1px solid #1F2133;
+}
+.input-box {
+  flex: 1;
+  background: #1A1C29;
+  height: 80rpx;
+  border-radius: 40rpx;
+  padding: 0 40rpx;
+  color: #FFF;
+  font-size: 30rpx;
+}
+.send-btn {
+  width: 120rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  color: #00FFCC;
+  font-weight: bold;
+  font-size: 30rpx;
+}
+.complete-tip {
+  flex-shrink: 0;
+  margin: 0 30rpx 10rpx 30rpx;
+  padding: 20rpx;
+  background: #1A1C29;
+  color: #00FFCC;
+  text-align: center;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  font-weight: bold;
+  border: 1px solid #2A2D40;
+}

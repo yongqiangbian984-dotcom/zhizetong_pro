@@ -1,0 +1,168 @@
+<view class="report-container">
+  <view class="report-nav" style="padding-top: {{statusBarHeight}}px;">
+    <view class="nav-content">
+      <view class="nav-back" bindtap="goBack">‹ 返回</view>
+      <view class="nav-title">择校分析报告</view>
+    </view>
+  </view>
+
+  <scroll-view class="report-body" scroll-y="true">
+
+    <!-- ========== 6维完整报告 ========== -->
+    <block wx:if="{{mode === 'full' && reportData}}">
+      <view class="report-header">
+        <view class="report-title">智择通6维评估报告</view>
+        <view class="report-sub">DeepSeek AI + 康波周期分析</view>
+      </view>
+
+      <!-- Step1 性格特质 -->
+      <view class="dim-card" wx:if="{{reportData.step1_personality}}">
+        <view class="dim-header">🧠 一、性格特质分析</view>
+        <view class="dim-item">
+          <view class="dim-label">决策风格</view>
+          <view class="dim-value">{{reportData.step1_personality.decision_style || '-'}}</view>
+        </view>
+        <view class="dim-item">
+          <view class="dim-label">兴趣深度</view>
+          <view class="dim-value highlight">{{reportData.step1_personality.interest_depth || '-'}}</view>
+        </view>
+        <view class="dim-item">
+          <view class="dim-label">分析依据</view>
+          <view class="dim-value">{{reportData.step1_personality.evidence || '-'}}</view>
+        </view>
+      </view>
+
+      <!-- Step2 家庭资源 -->
+      <view class="dim-card" wx:if="{{reportData.step2_fri}}">
+        <view class="dim-header">💰 二、家庭资源评估 (FRI)</view>
+        <view class="fri-score">
+          <view class="fri-number">{{reportData.step2_fri.fri_index || '-'}}</view>
+          <view class="fri-label">{{reportData.step2_fri.resource_level || '-'}}</view>
+        </view>
+        <view class="dim-item">
+          <view class="dim-label">承接能力</view>
+          <view class="dim-value">{{reportData.step2_fri.carrying_capacity || '-'}}</view>
+        </view>
+      </view>
+
+      <!-- Step3 行业周期 -->
+      <view class="dim-card" wx:if="{{reportData.step3_kondratiev}}">
+        <view class="dim-header">📈 三、行业周期研判</view>
+        <view class="dim-item">
+          <view class="dim-label">行业阶段</view>
+          <view class="dim-value highlight">{{reportData.step3_kondratiev.industry_phase || '-'}}</view>
+        </view>
+        <view class="dim-item">
+          <view class="dim-label">AI替代风险</view>
+          <view class="dim-value {{reportData.step3_kondratiev.ai_risk === '极低' || reportData.step3_kondratiev.ai_risk === '低' ? 'safe' : 'warn'}}">{{reportData.step3_kondratiev.ai_risk || '-'}}</view>
+        </view>
+        <view class="dim-item">
+          <view class="dim-label">趋势建议</view>
+          <view class="dim-value">{{reportData.step3_kondratiev.trend_advice || '-'}}</view>
+        </view>
+      </view>
+
+      <!-- Step4 地域价值 -->
+      <view class="dim-card" wx:if="{{reportData.step4_location}}">
+        <view class="dim-header">🏙️ 四、地域价值核算</view>
+        <view class="dim-item">
+          <view class="dim-label">城市层级</view>
+          <view class="dim-value">{{reportData.step4_location.city_tier || '-'}}</view>
+        </view>
+        <view class="dim-item">
+          <view class="dim-label">时间价值</view>
+          <view class="dim-value">{{reportData.step4_location.time_value || '-'}}</view>
+        </view>
+        <view class="dim-item">
+          <view class="dim-label">策略</view>
+          <view class="dim-value highlight">{{reportData.step4_location.strategy || '-'}}</view>
+        </view>
+      </view>
+
+      <!-- Step5 升学竞争 -->
+      <view class="dim-card" wx:if="{{reportData.step5_competition}}">
+        <view class="dim-header">🎓 五、升学竞争评估</view>
+        <view class="dim-item">
+          <view class="dim-label">难度</view>
+          <view class="dim-value warn">{{reportData.step5_competition.difficulty || '-'}}</view>
+        </view>
+        <view class="dim-item">
+          <view class="dim-label">ROI</view>
+          <view class="dim-value">{{reportData.step5_competition.roi || '-'}}</view>
+        </view>
+        <view class="dim-item">
+          <view class="dim-label">位次分析</view>
+          <view class="dim-value">{{reportData.step5_competition.rank_analysis || '-'}}</view>
+        </view>
+      </view>
+
+      <!-- Step6 容错规划 -->
+      <view class="dim-card" wx:if="{{reportData.step6_contingency}}">
+        <view class="dim-header">🎯 六、容错规划</view>
+
+        <view class="plan-card plan-a">
+          <view class="plan-badge">Plan A 冲刺</view>
+          <view class="plan-content">{{reportData.step6_contingency.Plan_A || '-'}}</view>
+        </view>
+
+        <view class="plan-card plan-b">
+          <view class="plan-badge">Plan B 稳妥</view>
+          <view class="plan-content">{{reportData.step6_contingency.Plan_B || '-'}}</view>
+        </view>
+
+        <view class="plan-card plan-c">
+          <view class="plan-badge">Plan C 保底</view>
+          <view class="plan-content">{{reportData.step6_contingency.Plan_C || '-'}}</view>
+        </view>
+      </view>
+
+      <!-- 风险提示 -->
+      <view class="risk-card" wx:if="{{reportData.risk_warning}}">
+        <view class="risk-header">⚠️ 风险提示</view>
+        <view class="risk-content">{{reportData.risk_warning}}</view>
+      </view>
+
+      <!-- 反思校验 -->
+      <view class="reflection-card" wx:if="{{reportData.reflection_check}}">
+        <view class="reflection-header">✅ AI自检</view>
+        <view class="reflection-item {{reportData.reflection_check.resource_supportable ? 'pass' : 'fail'}}">
+          资源可支撑性：{{reportData.reflection_check.resource_supportable ? '✅ 通过' : '❌ 未通过'}}
+        </view>
+        <view class="reflection-item {{reportData.reflection_check.ai_risk_addressed ? 'pass' : 'fail'}}">
+          AI风险已应对：{{reportData.reflection_check.ai_risk_addressed ? '✅ 通过' : '❌ 未通过'}}
+        </view>
+        <view class="reflection-item {{reportData.reflection_check.red_sea_bypassed ? 'pass' : 'fail'}}">
+          红海规避：{{reportData.reflection_check.red_sea_bypassed ? '✅ 通过' : '❌ 未通过'}}
+        </view>
+      </view>
+    </block>
+
+    <!-- ========== 旧版聊天报告 ========== -->
+    <block wx:if="{{mode !== 'full'}}">
+      <view class="report-header">
+        <view class="report-title">择校分析报告</view>
+        <view class="report-sub">智择通 AI 生成</view>
+      </view>
+      <view wx:if="{{reportHtml}}" class="report-content">
+        <rich-text nodes="{{reportHtml}}"></rich-text>
+      </view>
+    </block>
+
+    <!-- 加载状态 -->
+    <view class="loading-state" wx:if="{{loading}}">
+      <view class="loading-text">专业AI正在生成...</view>
+      <view class="loading-hint">报告内容较长，请耐心等待</view>
+    </view>
+
+    <!-- 错误状态 -->
+    <view class="error-state" wx:if="{{error}}">
+      <view class="error-text">{{error}}</view>
+      <view class="retry-btn" bindtap="retryReport">重新生成</view>
+    </view>
+
+  </scroll-view>
+</view>
+
+<view class="footer-hook" bindtap="copyWechat">
+  👨‍🏫 报告有疑问？点击复制首席规划师微信，免费答疑 1 次
+</view>
